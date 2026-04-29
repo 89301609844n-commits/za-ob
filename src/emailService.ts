@@ -6,7 +6,7 @@ export async function fetchLatestEmails(): Promise<Appeal[]> {
   const client = new ImapFlow({
     host: process.env.EMAIL_HOST || 'imap.gmail.com',
     port: parseInt(process.env.EMAIL_PORT || '993'),
-    secure: true,
+    secure: process.env.EMAIL_SECURE !== 'false',
     auth: {
       user: process.env.EMAIL_USER?.trim() || '',
       pass: process.env.EMAIL_PASS?.trim() || '',
