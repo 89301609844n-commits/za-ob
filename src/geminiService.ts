@@ -2,9 +2,21 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { AnalysisResult } from "./types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+let aiInstance: GoogleGenAI | null = null;
+
+function getAI() {
+  if (!aiInstance) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      console.warn("GEMINI_API_KEY is not set. AI features will be disabled.");
+    }
+    aiInstance = new GoogleGenAI({ apiKey: apiKey || 'dummy-key' });
+  }
+  return aiInstance;
+}
 
 export async function analyzeAppeal(content: string): Promise<AnalysisResult> {
+  const ai = getAI();
   const prompt = `Проанализируй обращение гражданина и классифицируй его по следующим категориям:
 - ЖКХ (вопросы отопления, воды, содержания домов)
 - Транспорт (дороги, общественный транспорт, парковки)
