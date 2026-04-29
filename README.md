@@ -1,11 +1,67 @@
-<div align="center">
+# CitizenConnect - Система работы с обращениями граждан
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+Приложение для автоматического сбора писем из Gmail (через IMAP) и их категоризации с помощью ИИ Gemini.
 
-  <h1>Built with AI Studio</h2>
+## 🛠 Настройка
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+Для работы приложения необходимо создать файл `.env` в корневом каталоге и добавить туда следующие переменные:
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+```env
+# Параметры почты (Gmail)
+EMAIL_USER=vash_email@gmail.com
+EMAIL_PASS=vash_app_password_16_simvolov
+EMAIL_HOST=imap.gmail.com
+EMAIL_PORT=993
 
-</div>
+# Параметры ИИ
+GEMINI_API_KEY=vash_kluch_iz_google_ai_studio
+```
+
+> **Важно:** Для `EMAIL_PASS` используйте "Пароль приложения" (App Password) из настроек безопасности вашего Google-аккаунта. Обычный пароль от почты не подойдет.
+
+## 🚀 Запуск в разработке
+
+1. Установите зависимости:
+   ```bash
+   npm install
+   ```
+2. Запустите сервер разработки:
+   ```bash
+   npm run dev
+   ```
+
+## 📦 Сборка и деплой
+
+Для запуска в контейнере или на сервере:
+```bash
+npm run build
+npm start
+```
+
+## 🛠 Решение проблем
+### Пустой экран при запуске
+1. **Базовый путь:** В `vite.config.ts` параметр `base` теперь установлен в `'./'`. Это позволяет корректно подгружать скрипты при размещении в подпапках (например, на GitHub Pages).
+2. **Отсутствие сборки:** Если вы запускаете `npm start`, убедитесь, что вы сначала выполнили `npm run build`.
+
+### Ограничения GitHub Pages
+GitHub Pages — это **статический** хостинг. 
+- На нем будет работать визуальная часть (фронтенд).
+- **НЕ БУДЕТ** работать функция "Синхронизировать почту" и "Авто-категоризация", так как они требуют Node.js сервера (`server.ts`) и секретных ключей, которые нельзя хранить в открытом коде.
+- Для полноценной работы используйте **Cloud Run**, **Heroku**, **Render** или **Vercel** (с адаптером для функций).
+
+## 🛠 Ошибки деплоя в Google Cloud
+Если вы видите ошибку `Custom Org Policy CloudCheck (run.managed.requireInvokerIam)` в AI Studio:
+1. Зайдите в [Google Cloud Console](https://console.cloud.google.com/).
+2. Раздел **IAM & Admin > Organization Policies**.
+3. Отключите (Manage policy -> Disable) правило **"Domain Restricted Sharing"** или **"Allowed invoker check for Cloud Run"** для вашего проекта. Это позволит сделать сервис публичным.
+
+## ⚙️ Структура проекта
+- `server.ts` — Express сервер, проксирующий запросы и отдающий статику.
+- `src/emailService.ts` — логика работы с IMAP.
+- `src/geminiService.ts` — интеграция с Google Gemini AI.
+- `src/App.tsx` — фронтенд на React + Tailwind CSS.
+
+## 🤖 Функции
+- **Синхронизация IMAP:** Загрузка последних писем из папки "Входящие".
+- **Gemini AI:** Автоматическое определение категории (ЖКХ, Транспорт, Здравоохранение и др.).
+- **Интерфейс:** Удобный дашборд для управления статусами обращений.

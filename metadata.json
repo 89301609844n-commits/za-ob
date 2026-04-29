@@ -1,0 +1,6 @@
+{
+  "name": "Remix: CitizenConnect AI",
+  "description": "An administrative tool for analyzing citizen appeals, categorizing requests by topic, and generating AI-assisted official responses.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
