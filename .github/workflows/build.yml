@@ -28,5 +28,11 @@ jobs:
     - name: Build App
       run: npm run build
       env:
-        # Временные переменные для прохождения сборки (если они проверяются при билде)
-        VITE_GEMINI_API_KEY: "dummy"
+        VITE_GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
+    - name: Deploy to GitHub Pages
+      if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./dist
