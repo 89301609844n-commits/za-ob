@@ -3,7 +3,8 @@ import path from "path";
 import fs from "fs";
 import cors from "cors";
 import { createServer as createViteServer } from "vite";
-import { fetchLatestEmails } from "./src/emailService.ts";
+import { fetchLatestEmails, sendReplyEmail } from "./src/emailService.ts";
+import { analyzeAppeal } from "./src/geminiService.ts";
 
 async function startServer() {
   // Production server entry point
@@ -21,9 +22,38 @@ async function startServer() {
       env: {
         hasUser: !!process.env.EMAIL_USER,
         hasPass: !!process.env.EMAIL_PASS,
+        hasGemini: !!process.env.GEMINI_API_KEY,
         nodeEnv: process.env.NODE_ENV
       }
     });
+  });
+
+  // API Route for AI analysis
+  app.post("/api/analyze", async (req, res) => {
+    try {
+      const { content, geminiKey } = req.body;
+      console.log(`API: POST /api/analyze`);
+      const result = await analyzeAppeal(content, geminiKey);
+      res.json(result);
+    } catch (error) {
+      console.error('Analysis Error:', error);
+      const message = error instanceof Error ? error.message : "Ошибка при анализе";
+      res.status(500).json({ error: "Failed to analyze", message });
+    }
+  });
+
+  // API Route for sending reply
+  app.post("/api/send-reply", async (req, res) => {
+    try {
+      const { to, subject, text, config } = req.body;
+      console.log(`API: POST /api/send-reply to=${to}`);
+      await sendReplyEmail(to, subject, text, config);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('SMTP Error:', error);
+      const message = error instanceof Error ? error.message : "Ошибка при отправке почты";
+      res.status(500).json({ error: "Failed to send email", message });
+    }
   });
 
   // API Route for syncing emails (Manual Config)

@@ -140,9 +140,28 @@ export default function App() {
   const handleAnalyze = async (appeal: Appeal) => {
     if (appeal.status === AppealStatus.ANALYZED || appeal.status === AppealStatus.REPLIED) return;
     
+    if (!emailConfig.geminiKey) {
+      alert("Пожалуйста, укажите Gemini API Key в Настройках для работы анализа.");
+      return;
+    }
+
     setIsAnalyzing(true);
     try {
-      const result: AnalysisResult = await analyzeAppeal(appeal.content, emailConfig.geminiKey);
+      const baseUrl = emailConfig.apiUrl || '';
+      const response = await fetch(`${baseUrl}/api/analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: appeal.content,
+          geminiKey: emailConfig.geminiKey
+        })
+      });
+
+      const result: AnalysisResult = await response.json();
+      if (!response.ok || (result as any).error) {
+        throw new Error((result as any).message || (result as any).error || 'Ошибка анализа');
+      }
+
       setAppeals(prev => prev.map(a => 
         a.id === appeal.id 
           ? { ...a, ...result, status: AppealStatus.ANALYZED } 
@@ -150,7 +169,7 @@ export default function App() {
       ));
     } catch (error) {
       console.error(error);
-      alert("Ошибка AI: Проверьте Gemini API Key в настройках или баланс токенов.");
+      alert("Ошибка AI: " + (error instanceof Error ? error.message : 'Неизвестная ошибка'));
     } finally {
       setIsAnalyzing(false);
     }
@@ -165,10 +184,22 @@ export default function App() {
 
     setIsSyncing(true);
     let count = 0;
+    const baseUrl = emailConfig.apiUrl || '';
     
     for (const appeal of unanalyzed) {
       try {
-        const result = await analyzeAppeal(appeal.content, emailConfig.geminiKey);
+        const response = await fetch(`${baseUrl}/api/analyze`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            content: appeal.content,
+            geminiKey: emailConfig.geminiKey
+          })
+        });
+
+        const result: AnalysisResult = await response.json();
+        if (!response.ok) throw new Error('API Error');
+
         setAppeals(prev => prev.map(a => 
           a.id === appeal.id 
             ? { ...a, ...result, status: AppealStatus.ANALYZED } 
@@ -184,11 +215,45 @@ export default function App() {
     alert(`Автоматическая категоризация завершена. Обработано сообщений: ${count}`);
   };
 
-  const handleSendResponse = (appealId: string) => {
-    setAppeals(prev => prev.map(a => 
-      a.id === appealId ? { ...a, status: AppealStatus.REPLIED } : a
-    ));
-    setSelectedAppealId(null);
+  const handleSendResponse = async (appealId: string) => {
+    const appeal = appeals.find(a => a.id === appealId);
+    if (!appeal || !appeal.suggestedResponse) return;
+
+    if (!emailConfig.user || !emailConfig.pass) {
+      alert("Сначала настройте почту (логин и пароль) в Настройках.");
+      return;
+    }
+
+    setIsAnalyzing(true);
+    try {
+      const baseUrl = emailConfig.apiUrl || '';
+      const response = await fetch(`${baseUrl}/api/send-reply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: appeal.senderEmail,
+          subject: appeal.subject,
+          text: appeal.suggestedResponse,
+          config: emailConfig
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok || data.error) {
+        throw new Error(data.message || data.error || 'Ошибка при отправке');
+      }
+
+      setAppeals(prev => prev.map(a => 
+        a.id === appealId ? { ...a, status: AppealStatus.REPLIED } : a
+      ));
+      alert('Ответ успешно отправлен на почту заявителя!');
+      setSelectedAppealId(null);
+    } catch (error) {
+      console.error(error);
+      alert('Ошибка при отправке: ' + (error instanceof Error ? error.message : 'Неизвестная ошибка'));
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   const handleSaveSettings = () => {
@@ -301,7 +366,6 @@ export default function App() {
                     <div>
                       <h2 className="text-xl font-semibold">Доступ ограничен</h2>
                       <p className="text-gray-500 mt-1 uppercase text-xs tracking-widest font-bold">Введите пароль администратора</p>
-                      <p className="text-[10px] text-blue-500 font-medium">(Подсказка: admin123)</p>
                     </div>
                     <form onSubmit={unlockSettings} className="w-full max-w-sm space-y-4 pt-4">
                       <input 

@@ -34,6 +34,7 @@ export async function analyzeAppeal(content: string, customKey?: string): Promis
 "${content}"`;
 
   try {
+    const ai = getAI(customKey);
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: prompt,
@@ -59,6 +60,10 @@ export async function analyzeAppeal(content: string, customKey?: string): Promis
     return result as AnalysisResult;
   } catch (error) {
     console.error("Gemini Analysis Error:", error);
-    throw new Error("Failed to analyze appeal");
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    if (errorMsg.includes("API key not valid") || errorMsg.includes("400")) {
+      throw new Error("Неверный Gemini API Key. Пожалуйста, проверьте его в Настройках.");
+    }
+    throw new Error("Не удалось выполнить анализ ИИ. Проверьте баланс токенов или попробуйте позже.");
   }
 }
