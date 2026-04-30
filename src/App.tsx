@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Inbox, 
   Search, 
@@ -14,7 +14,12 @@ import {
   Mail,
   Loader2,
   CheckCircle,
-  Sparkles
+  Sparkles,
+  Settings,
+  Lock,
+  Eye,
+  EyeOff,
+  Save
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Appeal, AppealStatus, AnalysisResult } from './types.ts';
@@ -50,7 +55,19 @@ export default function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [activeTab, setActiveTab] = useState<'inbox' | 'stats'>('inbox');
+  const [activeTab, setActiveTab] = useState<'inbox' | 'stats' | 'settings'>('inbox');
+
+  // Settings State
+  const [isSettingsUnlocked, setIsSettingsUnlocked] = useState(false);
+  const [adminPassword, setAdminPassword] = useState('');
+  const [emailConfig, setEmailConfig] = useState({
+    host: localStorage.getItem('email_host') || 'imap.gmail.com',
+    port: localStorage.getItem('email_port') || '993',
+    user: localStorage.getItem('email_user') || '',
+    pass: localStorage.getItem('email_pass') || '',
+    secure: localStorage.getItem('email_secure') === 'false' ? false : true
+  });
+  const [showPassword, setShowPassword] = useState(false);
 
   const selectedAppeal = useMemo(() => 
     appeals.find(a => a.id === selectedAppealId), 
@@ -70,7 +87,11 @@ export default function App() {
   const handleSyncEmails = async () => {
     setIsSyncing(true);
     try {
-      const response = await fetch('/api/sync-emails');
+      const response = await fetch('/api/sync-emails', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(emailConfig)
+      });
       const data = await response.json();
       
       if (data.error) {
@@ -160,6 +181,24 @@ export default function App() {
     setSelectedAppealId(null);
   };
 
+  const handleSaveSettings = () => {
+    localStorage.setItem('email_host', emailConfig.host);
+    localStorage.setItem('email_port', emailConfig.port);
+    localStorage.setItem('email_user', emailConfig.user);
+    localStorage.setItem('email_pass', emailConfig.pass);
+    localStorage.setItem('email_secure', String(emailConfig.secure));
+    alert('Настройки успешно сохранены в браузере!');
+  };
+
+  const unlockSettings = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (adminPassword === 'admin123') {
+      setIsSettingsUnlocked(true);
+    } else {
+      alert('Неверный пароль администратора!');
+    }
+  };
+
   return (
     <div className="flex h-screen bg-[#F9FAFB] overflow-hidden font-sans">
       {/* Sidebar */}
@@ -182,6 +221,7 @@ export default function App() {
             Рабочий стол
           </button>
           <button 
+            onClick={() => setActiveTab('inbox')}
             className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50"
           >
             <Inbox className="w-4 h-4" />
@@ -199,6 +239,20 @@ export default function App() {
           </button>
         </nav>
 
+        <div className="p-4 border-t border-gray-100 mb-4">
+          <button 
+            onClick={() => {
+              setActiveTab('settings');
+              setIsSettingsUnlocked(false);
+              setAdminPassword('');
+            }}
+            className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === 'settings' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50'}`}
+          >
+            <Settings className="w-4 h-4" />
+            Настройки
+          </button>
+        </div>
+
         <div className="p-4 mt-auto border-t border-gray-100">
           <div className="flex items-center gap-3 px-2 py-2">
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white text-xs font-bold">
@@ -214,7 +268,174 @@ export default function App() {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col overflow-hidden">
-        {activeTab === 'inbox' ? (
+        {activeTab === 'settings' ? (
+          <div className="flex-1 overflow-auto p-8 bg-gray-50">
+            <div className="max-w-2xl mx-auto">
+              <h1 className="text-2xl font-bold text-gray-900 mb-8 flex items-center gap-2">
+                <Settings className="w-6 h-6 text-blue-600" />
+                Настройки системы
+              </h1>
+
+              {!isSettingsUnlocked ? (
+                <motion.div 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-white p-8 rounded-xl shadow-sm border border-gray-200"
+                >
+                  <div className="flex flex-col items-center text-center space-y-4">
+                    <div className="p-4 bg-blue-50 rounded-full">
+                      <Lock className="w-8 h-8 text-blue-600" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-semibold">Доступ ограничен</h2>
+                      <p className="text-gray-500 mt-1 uppercase text-xs tracking-widest font-bold">Введите пароль администратора</p>
+                    </div>
+                    <form onSubmit={unlockSettings} className="w-full max-w-sm space-y-4 pt-4">
+                      <input 
+                        type="password" 
+                        value={adminPassword}
+                        onChange={(e) => setAdminPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-center text-lg tracking-widest"
+                        autoFocus
+                      />
+                      <button 
+                        type="submit"
+                        className="w-full bg-blue-600 text-white font-semibold py-3 rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                      >
+                        Войти
+                      </button>
+                    </form>
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="space-y-6"
+                >
+                  <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                    <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-6">Конфигурация Почты (IMAP)</h3>
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-gray-700">IMAP Сервер</label>
+                        <input 
+                          type="text" 
+                          value={emailConfig.host}
+                          onChange={(e) => setEmailConfig(prev => ({ ...prev, host: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-200 rounded-md focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                          placeholder="imap.gmail.com"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-gray-700">Порт</label>
+                        <input 
+                          type="text" 
+                          value={emailConfig.port}
+                          onChange={(e) => setEmailConfig(prev => ({ ...prev, port: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-200 rounded-md focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                          placeholder="993"
+                        />
+                      </div>
+                      <div className="col-span-2 space-y-2">
+                        <label className="text-xs font-bold text-gray-700">Email Пользователь</label>
+                        <input 
+                          type="email" 
+                          value={emailConfig.user}
+                          onChange={(e) => setEmailConfig(prev => ({ ...prev, user: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-200 rounded-md focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                          placeholder="example@gmail.com"
+                        />
+                      </div>
+                      <div className="col-span-2 space-y-2">
+                        <label className="text-xs font-bold text-gray-700">Пароль приложения</label>
+                        <div className="relative">
+                          <input 
+                            type={showPassword ? "text" : "password"}
+                            value={emailConfig.pass}
+                            onChange={(e) => setEmailConfig(prev => ({ ...prev, pass: e.target.value }))}
+                            className="w-full px-3 py-2 border border-gray-200 rounded-md focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                            placeholder="••••••••••••••••"
+                          />
+                          <button 
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                          >
+                            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                        <p className="text-[10px] text-gray-500">Рекомендуется использовать специальные пароли приложений Gmail.</p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <input 
+                          type="checkbox" 
+                          id="secure"
+                          checked={emailConfig.secure}
+                          onChange={(e) => setEmailConfig(prev => ({ ...prev, secure: e.target.checked }))}
+                          className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <label htmlFor="secure" className="text-xs font-medium text-gray-700">Безопасное соединение (SSL/TLS)</label>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-8 pt-6 border-t border-gray-100 flex justify-end">
+                      <button 
+                        onClick={handleSaveSettings}
+                        className="flex items-center gap-2 bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-blue-700 transition-shadow shadow-sm"
+                      >
+                        <Save className="w-4 h-4" />
+                        Сохранить настройки
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-amber-50 border border-amber-200 p-4 rounded-lg flex gap-3 text-amber-800">
+                    <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-semibold">Важное уведомление</p>
+                      <p className="text-xs mt-1 opacity-90">Настройки сохраняются только локально в этом браузере. При переходе в другой браузер их нужно будет ввести снова.</p>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </div>
+          </div>
+        ) : activeTab === 'stats' ? (
+          <div className="flex-1 overflow-auto p-12 space-y-8 bg-gray-50">
+            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Аналитика обращений</h1>
+            
+            <div className="grid grid-cols-4 gap-6">
+              <div className="p-6 bg-white rounded-2xl border border-gray-200 shadow-sm">
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Всего</p>
+                <p className="text-3xl font-bold text-gray-900">{appeals.length}</p>
+              </div>
+              <div className="p-6 bg-white rounded-2xl border border-gray-200 shadow-sm">
+                <p className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-2">Новые</p>
+                <p className="text-3xl font-bold text-blue-600">{appeals.filter(a => a.status === AppealStatus.NEW).length}</p>
+              </div>
+              <div className="p-6 bg-white rounded-2xl border border-gray-200 shadow-sm">
+                <p className="text-xs font-bold text-amber-400 uppercase tracking-widest mb-2">В работе</p>
+                <p className="text-3xl font-bold text-amber-600">{appeals.filter(a => a.status === AppealStatus.ANALYZED).length}</p>
+              </div>
+              <div className="p-6 bg-white rounded-2xl border border-gray-200 shadow-sm">
+                <p className="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-2">Отвечено</p>
+                <p className="text-3xl font-bold text-emerald-600">{appeals.filter(a => a.status === AppealStatus.REPLIED).length}</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-8">
+              <div className="bg-white p-8 rounded-2xl border border-gray-200 shadow-sm min-h-[300px] flex flex-col justify-center items-center gap-4">
+                <BarChart3 className="w-12 h-12 text-gray-200" />
+                <p className="text-sm text-gray-400">График по тематикам (В разработке)</p>
+              </div>
+              <div className="bg-white p-8 rounded-2xl border border-gray-200 shadow-sm min-h-[300px] flex flex-col justify-center items-center gap-4">
+                <Clock className="w-12 h-12 text-gray-200" />
+                <p className="text-sm text-gray-400">Время обработки (В разработке)</p>
+              </div>
+            </div>
+          </div>
+        ) : (
           <>
             {/* Header / Search */}
             <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-8 shrink-0">
@@ -297,10 +518,10 @@ export default function App() {
                       </div>
                       <div className="w-32 px-6 py-4 flex items-center justify-center">
                         {appeal.status === AppealStatus.NEW ? (
-                          <div className="flex items-center gap-1.5 text-blue-600 text-[11px] font-bold">
-                            <Clock className="w-3 h-3" />
-                            Новое
-                          </div>
+                           <div className="flex items-center gap-1.5 text-blue-600 text-[11px] font-bold">
+                             <Clock className="w-3 h-3" />
+                             Новое
+                           </div>
                         ) : appeal.status === AppealStatus.ANALYZED ? (
                           <div className="flex items-center gap-1.5 text-amber-600 text-[11px] font-bold">
                             <AlertCircle className="w-3 h-3" />
@@ -463,40 +684,6 @@ export default function App() {
               </AnimatePresence>
             </div>
           </>
-        ) : (
-          <div className="p-12 space-y-8 overflow-y-auto">
-            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Аналитика обращений</h1>
-            
-            <div className="grid grid-cols-4 gap-6">
-              <div className="p-6 bg-white rounded-2xl border border-gray-100 shadow-sm">
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Всего</p>
-                <p className="text-3xl font-bold text-gray-900">{appeals.length}</p>
-              </div>
-              <div className="p-6 bg-white rounded-2xl border border-gray-100 shadow-sm">
-                <p className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-2">Новые</p>
-                <p className="text-3xl font-bold text-blue-600">{appeals.filter(a => a.status === AppealStatus.NEW).length}</p>
-              </div>
-              <div className="p-6 bg-white rounded-2xl border border-gray-100 shadow-sm">
-                <p className="text-xs font-bold text-amber-400 uppercase tracking-widest mb-2">В работе</p>
-                <p className="text-3xl font-bold text-amber-600">{appeals.filter(a => a.status === AppealStatus.ANALYZED).length}</p>
-              </div>
-              <div className="p-6 bg-white rounded-2xl border border-gray-100 shadow-sm">
-                <p className="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-2">Отвечено</p>
-                <p className="text-3xl font-bold text-emerald-600">{appeals.filter(a => a.status === AppealStatus.REPLIED).length}</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-8">
-              <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm min-h-[300px] flex flex-col justify-center items-center gap-4">
-                <BarChart3 className="w-12 h-12 text-gray-200" />
-                <p className="text-sm text-gray-400">График по тематикам (В разработке)</p>
-              </div>
-              <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm min-h-[300px] flex flex-col justify-center items-center gap-4">
-                <Clock className="w-12 h-12 text-gray-200" />
-                <p className="text-sm text-gray-400">Время обработки (В разработке)</p>
-              </div>
-            </div>
-          </div>
         )}
       </main>
     </div>

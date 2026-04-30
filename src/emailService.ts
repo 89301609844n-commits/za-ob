@@ -2,20 +2,26 @@ import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import { Appeal, AppealStatus } from './types.ts';
 
-export async function fetchLatestEmails(): Promise<Appeal[]> {
+export async function fetchLatestEmails(customConfig?: any): Promise<Appeal[]> {
+  const host = customConfig?.host || process.env.EMAIL_HOST || 'imap.gmail.com';
+  const port = parseInt(customConfig?.port || process.env.EMAIL_PORT || '993');
+  const user = customConfig?.user?.trim() || process.env.EMAIL_USER?.trim() || '';
+  const pass = customConfig?.pass?.trim() || process.env.EMAIL_PASS?.trim() || '';
+  const secure = customConfig?.secure !== undefined ? customConfig.secure : (process.env.EMAIL_SECURE !== 'false');
+
   const client = new ImapFlow({
-    host: process.env.EMAIL_HOST || 'imap.gmail.com',
-    port: parseInt(process.env.EMAIL_PORT || '993'),
-    secure: process.env.EMAIL_SECURE !== 'false',
+    host,
+    port,
+    secure,
     auth: {
-      user: process.env.EMAIL_USER?.trim() || '',
-      pass: process.env.EMAIL_PASS?.trim() || '',
+      user,
+      pass,
     },
     logger: false,
     connectionTimeout: 40000,
     greetingTimeout: 40000,
     tls: {
-      servername: process.env.EMAIL_HOST || 'imap.gmail.com',
+      servername: host,
       rejectUnauthorized: false
     }
   });
@@ -28,11 +34,11 @@ export async function fetchLatestEmails(): Promise<Appeal[]> {
   const appeals: Appeal[] = [];
 
   try {
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      throw new Error('EMAIL_USER или EMAIL_PASS не заполнены в Secrets.');
+    if (!user || !pass) {
+      throw new Error('EMAIL_USER или EMAIL_PASS не заполнены.');
     }
 
-    console.log(`IMAP: Соединение с ${process.env.EMAIL_HOST}...`);
+    console.log(`IMAP: Соединение с ${host}...`);
     await client.connect();
     
     const lock = await client.getMailboxLock('INBOX');

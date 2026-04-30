@@ -12,6 +12,18 @@ async function startServer() {
   app.use(express.json());
 
   // API Route for syncing emails
+  app.post("/api/sync-emails", async (req, res) => {
+    try {
+      const config = req.body;
+      const emails = await fetchLatestEmails(config);
+      res.json(emails);
+    } catch (error) {
+      console.error(error);
+      const message = error instanceof Error ? error.message : "Неизвестная ошибка при получении почты";
+      res.status(500).json({ error: "Failed to fetch emails", message });
+    }
+  });
+
   app.get("/api/sync-emails", async (req, res) => {
     try {
       if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
