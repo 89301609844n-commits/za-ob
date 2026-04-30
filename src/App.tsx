@@ -65,7 +65,8 @@ export default function App() {
     port: localStorage.getItem('email_port') || '993',
     user: localStorage.getItem('email_user') || '',
     pass: localStorage.getItem('email_pass') || '',
-    secure: localStorage.getItem('email_secure') === 'false' ? false : true
+    secure: localStorage.getItem('email_secure') === 'false' ? false : true,
+    apiUrl: localStorage.getItem('api_url') || ''
   });
   const [showPassword, setShowPassword] = useState(false);
 
@@ -87,14 +88,15 @@ export default function App() {
   const handleSyncEmails = async () => {
     setIsSyncing(true);
     try {
-      const response = await fetch('/api/sync-emails', {
+      const baseUrl = emailConfig.apiUrl || '';
+      const response = await fetch(`${baseUrl}/api/sync-emails`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(emailConfig)
       });
 
       if (response.status === 404) {
-        alert("ОШИБКА 404: Сервер не найден.\n\nВозможные причины:\n1. Вы открыли сайт через GitHub Pages (он не поддерживает бэкенд).\n2. Бэкенд еще не запустился.\n\nДля работы почты используйте превью AI Studio или разверните проект на платформе с поддержкой Node.js (например, Render или Railway).");
+        alert("ОШИБКА 404: Сервер не найден по адресу " + (baseUrl || 'этого сайта') + ".\n\nЕсли вы используете Cloudflare/GitHub, вам нужно развернуть бэкенд отдельно и указать его URL в Настройках.");
         return;
       }
 
@@ -193,6 +195,7 @@ export default function App() {
     localStorage.setItem('email_user', emailConfig.user);
     localStorage.setItem('email_pass', emailConfig.pass);
     localStorage.setItem('email_secure', String(emailConfig.secure));
+    localStorage.setItem('api_url', emailConfig.apiUrl);
     alert('Настройки успешно сохранены в браузере!');
   };
 
@@ -385,6 +388,20 @@ export default function App() {
                           className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                         />
                         <label htmlFor="secure" className="text-xs font-medium text-gray-700">Безопасное соединение (SSL/TLS)</label>
+                      </div>
+
+                      <div className="col-span-2 pt-4 border-t border-gray-100 space-y-2">
+                        <label className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
+                          URL Backend Сервера 
+                          <span className="text-[10px] font-normal text-gray-400">(Оставьте пустым, если сервер на этом же хостинге)</span>
+                        </label>
+                        <input 
+                          type="text" 
+                          value={emailConfig.apiUrl}
+                          onChange={(e) => setEmailConfig(prev => ({ ...prev, apiUrl: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-200 rounded-md focus:ring-2 focus:ring-blue-500 outline-none text-sm placeholder:opacity-50"
+                          placeholder="https://your-backend-server.com"
+                        />
                       </div>
                     </div>
                     
