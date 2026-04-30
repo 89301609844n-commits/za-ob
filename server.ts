@@ -1,6 +1,7 @@
 import express from "express";
 import path from "path";
 import fs from "fs";
+import cors from "cors";
 import { createServer as createViteServer } from "vite";
 import { fetchLatestEmails } from "./src/emailService.ts";
 
@@ -9,21 +10,37 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
+  // Middleware
+  app.use(cors()); // Enable CORS for cross-domain requests
   app.use(express.json());
 
-  // API Route for syncing emails
+  // API Health Check
+  app.get("/api/health", (req, res) => {
+    res.json({ 
+      status: "ok", 
+      env: {
+        hasUser: !!process.env.EMAIL_USER,
+        hasPass: !!process.env.EMAIL_PASS,
+        nodeEnv: process.env.NODE_ENV
+      }
+    });
+  });
+
+  // API Route for syncing emails (Manual Config)
   app.post("/api/sync-emails", async (req, res) => {
     try {
       const config = req.body;
+      console.log(`API: POST /api/sync-emails with host=${config.host}`);
       const emails = await fetchLatestEmails(config);
       res.json(emails);
     } catch (error) {
-      console.error(error);
-      const message = error instanceof Error ? error.message : "Неизвестная ошибка при получении почты";
+      console.error('Server sync error:', error);
+      const message = error instanceof Error ? error.message : "Неизвестная ошибка на сервере";
       res.status(500).json({ error: "Failed to fetch emails", message });
     }
   });
 
+  // API Route for syncing emails (Env Config)
   app.get("/api/sync-emails", async (req, res) => {
     try {
       if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
@@ -35,8 +52,8 @@ async function startServer() {
       const emails = await fetchLatestEmails();
       res.json(emails);
     } catch (error) {
-      console.error(error);
-      const message = error instanceof Error ? error.message : "Неизвестная ошибка при получении почты";
+      console.error('Server GET sync error:', error);
+      const message = error instanceof Error ? error.message : "Неизвестная ошибка на сервере";
       res.status(500).json({ error: "Failed to fetch emails", message });
     }
   });

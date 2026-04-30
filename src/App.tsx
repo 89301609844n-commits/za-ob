@@ -92,6 +92,12 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(emailConfig)
       });
+
+      if (response.status === 404) {
+        alert("ОШИБКА 404: Сервер не найден.\n\nВозможные причины:\n1. Вы открыли сайт через GitHub Pages (он не поддерживает бэкенд).\n2. Бэкенд еще не запустился.\n\nДля работы почты используйте превью AI Studio или разверните проект на платформе с поддержкой Node.js (например, Render или Railway).");
+        return;
+      }
+
       const data = await response.json();
       
       if (data.error) {
@@ -365,7 +371,10 @@ export default function App() {
                             {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                           </button>
                         </div>
-                        <p className="text-[10px] text-gray-500">Рекомендуется использовать специальные пароли приложений Gmail.</p>
+                        <p className="text-[10px] text-gray-500 mt-1">
+                          Для Gmail используйте 16-значный <strong>"Пароль приложения"</strong>. 
+                          Обычный пароль от почты не подойдет из-за политики безопасности Google.
+                        </p>
                       </div>
                       <div className="flex items-center gap-3">
                         <input 
