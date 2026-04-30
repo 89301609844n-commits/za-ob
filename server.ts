@@ -67,14 +67,20 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
-    console.log(`Production mode: serving static files from ${distPath}`);
-    if (!fs.existsSync(path.join(distPath, 'index.html'))) {
-      console.error('CRITICAL: dist/index.html not found! Make sure you ran "npm run build".');
+    const indexHtml = path.join(distPath, 'index.html');
+    
+    if (fs.existsSync(indexHtml)) {
+      console.log(`Production mode: serving static files from ${distPath}`);
+      app.use(express.static(distPath));
+      app.get('*', (req, res) => {
+        res.sendFile(indexHtml);
+      });
+    } else {
+      console.warn("WARNING: 'dist/index.html' not found. Only API routes will be available.");
+      app.get('*', (req, res) => {
+        res.status(404).send("Front-end not built. Run 'npm run build' first.");
+      });
     }
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
   }
 
   app.listen(PORT, "0.0.0.0", () => {

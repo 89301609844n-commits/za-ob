@@ -66,7 +66,8 @@ export default function App() {
     user: localStorage.getItem('email_user') || '',
     pass: localStorage.getItem('email_pass') || '',
     secure: localStorage.getItem('email_secure') === 'false' ? false : true,
-    apiUrl: localStorage.getItem('api_url') || ''
+    apiUrl: localStorage.getItem('api_url') || '',
+    geminiKey: localStorage.getItem('gemini_key') || ''
   });
   const [showPassword, setShowPassword] = useState(false);
 
@@ -141,7 +142,7 @@ export default function App() {
     
     setIsAnalyzing(true);
     try {
-      const result: AnalysisResult = await analyzeAppeal(appeal.content);
+      const result: AnalysisResult = await analyzeAppeal(appeal.content, emailConfig.geminiKey);
       setAppeals(prev => prev.map(a => 
         a.id === appeal.id 
           ? { ...a, ...result, status: AppealStatus.ANALYZED } 
@@ -149,6 +150,7 @@ export default function App() {
       ));
     } catch (error) {
       console.error(error);
+      alert("Ошибка AI: Проверьте Gemini API Key в настройках или баланс токенов.");
     } finally {
       setIsAnalyzing(false);
     }
@@ -166,7 +168,7 @@ export default function App() {
     
     for (const appeal of unanalyzed) {
       try {
-        const result = await analyzeAppeal(appeal.content);
+        const result = await analyzeAppeal(appeal.content, emailConfig.geminiKey);
         setAppeals(prev => prev.map(a => 
           a.id === appeal.id 
             ? { ...a, ...result, status: AppealStatus.ANALYZED } 
@@ -196,6 +198,7 @@ export default function App() {
     localStorage.setItem('email_pass', emailConfig.pass);
     localStorage.setItem('email_secure', String(emailConfig.secure));
     localStorage.setItem('api_url', emailConfig.apiUrl);
+    localStorage.setItem('gemini_key', emailConfig.geminiKey);
     alert('Настройки успешно сохранены в браузере!');
   };
 
@@ -298,6 +301,7 @@ export default function App() {
                     <div>
                       <h2 className="text-xl font-semibold">Доступ ограничен</h2>
                       <p className="text-gray-500 mt-1 uppercase text-xs tracking-widest font-bold">Введите пароль администратора</p>
+                      <p className="text-[10px] text-blue-500 font-medium">(Подсказка: admin123)</p>
                     </div>
                     <form onSubmit={unlockSettings} className="w-full max-w-sm space-y-4 pt-4">
                       <input 
@@ -402,6 +406,33 @@ export default function App() {
                           className="w-full px-3 py-2 border border-gray-200 rounded-md focus:ring-2 focus:ring-blue-500 outline-none text-sm placeholder:opacity-50"
                           placeholder="https://your-backend-server.com"
                         />
+                      </div>
+
+                      <div className="col-span-2 pt-4 border-t border-gray-100 space-y-2">
+                        <label className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
+                          Gemini API Key 
+                          <span className="text-[10px] font-normal text-gray-400">(Для работы ИИ анализа)</span>
+                        </label>
+                        <div className="relative">
+                          <input 
+                            type={showPassword ? "text" : "password"}
+                            value={emailConfig.geminiKey}
+                            onChange={(e) => setEmailConfig(prev => ({ ...prev, geminiKey: e.target.value }))}
+                            className="w-full px-3 py-2 border border-gray-200 rounded-md focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                            placeholder="AIzaSyXXXXXXXXXXXXXXXX"
+                          />
+                          <button 
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                          >
+                            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                        <p className="text-[10px] text-gray-500 mt-1">
+                          Ключ нужен для категоризации и подготовки ответов. 
+                          Создайте его бесплатно в <a href="https://aistudio.google.com/app/apikey" target="_blank" className="text-blue-600 underline">Google AI Studio</a>.
+                        </p>
                       </div>
                     </div>
                     
