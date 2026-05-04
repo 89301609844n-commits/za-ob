@@ -13,57 +13,40 @@ function getAI(customKey?: string) {
 }
 
 export async function analyzeAppeal(content: string, customKey?: string): Promise<AnalysisResult> {
-  const ai = getAI(customKey);
-  const prompt = `Проанализируй обращение гражданина и классифицируй его по следующим категориям:
-- ЖКХ (вопросы отопления, воды, содержания домов)
-- Транспорт (дороги, общественный транспорт, парковки)
-- Здравоохранение (больницы, лекарства, запись к врачу)
-- Социальная поддержка (выплаты, пособия, льготы)
-- Благоустройство (парки, освещение, детские площадки)
-- Образование (школы, детские сады)
-- Экология (мусор, загрязнение)
-- Другое (если ни одна категория не подходит)
-
-Верни ответ строго в формате JSON:
-1. "category": Название категории из списка выше.
-2. "summary": Краткое резюме сути обращения (1 предложение).
-3. "suggestedResponse": Официальный, вежливый предварительный ответ на русском языке от имени администрации.
-4. "priority": Уровень срочности (LOW, MEDIUM, HIGH).
-
-Текст обращения:
-"${content}"`;
-
   try {
     const ai = getAI(customKey);
+    const prompt = `Проанализируй обращение гражданина: "${content}"
+
+Подготовь глубокий анализ для городской администрации:
+1. "category": классификация (ЖКХ, Транспорт, Здравоохранение, Соцподдержка, Благоустройство, Образование, Экология, Другое).
+2. "summary": краткая суть.
+3. "priority": LOW, MEDIUM или HIGH.
+4. "suggestedResponse": РАСШИРЕННЫЙ проект официального ответа (2-4 абзаца, вежливо, официально, с благодарностью за обращение).
+
+Верни ответ в формате JSON.`;
+
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            category: { type: Type.STRING },
-            summary: { type: Type.STRING },
-            suggestedResponse: { type: Type.STRING },
-            priority: { 
-              type: Type.STRING,
-              enum: ["LOW", "MEDIUM", "HIGH"]
-            },
-          },
-          required: ["category", "summary", "suggestedResponse", "priority"],
-        },
-      },
+      }
     });
 
-    const result = JSON.parse(response.text);
+    let text = response.text;
+    if (!text) throw new Error("Модель вернула пустой ответ.");
+    
+    // На всякий случай чистим от markdown
+    text = text.replace(/```json/g, "").replace(/```/g, "").trim();
+    
+    const result = JSON.parse(text);
     return result as AnalysisResult;
   } catch (error) {
     console.error("Gemini Analysis Error:", error);
     const errorMsg = error instanceof Error ? error.message : String(error);
-    if (errorMsg.includes("API key not valid") || errorMsg.includes("400")) {
-      throw new Error("Неверный Gemini API Key. Пожалуйста, проверьте его в Настройках.");
+    if (errorMsg.includes("API key not valid")) {
+      throw new Error("Неверный Gemini API Key. Проверьте его в Настройках.");
     }
-    throw new Error("Не удалось выполнить анализ ИИ. Проверьте баланс токенов или попробуйте позже.");
+    throw new Error("Ошибка ИИ: " + errorMsg);
   }
 }

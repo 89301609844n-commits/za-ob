@@ -26,28 +26,7 @@ import { Appeal, AppealStatus, AnalysisResult } from './types.ts';
 import { analyzeAppeal } from './geminiService.ts';
 
 // Mock initial data
-const INITIAL_APPEALS: Appeal[] = [
-  {
-    id: '1',
-    senderName: 'Иван Петров',
-    senderEmail: 'ivan@example.com',
-    subject: 'Проблемы с освещением в парке',
-    content: 'Вчера вечером гулял в парке Юбилейный, освещение на центральной аллее полностью отсутствует. Очень темно и небезопасно. Прошу разобраться.',
-    receivedAt: new Date(Date.now() - 3600000 * 2).toISOString(),
-    status: AppealStatus.NEW,
-    priority: 'MEDIUM'
-  },
-  {
-    id: '2',
-    senderName: 'Мария Сидорова',
-    senderEmail: 'maria@example.com',
-    subject: 'Запись в детский сад №45',
-    content: 'Здравствуйте, не могу подать заявление в детский сад через госуслуги. Пишет ошибку сервера. Есть ли другие способы подачи документов?',
-    receivedAt: new Date(Date.now() - 3600000 * 8).toISOString(),
-    status: AppealStatus.NEW,
-    priority: 'HIGH'
-  }
-];
+const INITIAL_APPEALS: Appeal[] = [];
 
 export default function App() {
   const [appeals, setAppeals] = useState<Appeal[]>(INITIAL_APPEALS);
@@ -233,7 +212,7 @@ export default function App() {
         body: JSON.stringify({
           to: appeal.senderEmail,
           subject: appeal.subject,
-          text: appeal.suggestedResponse,
+          text: appeal.suggestedResponse, // Uses the current (potentially edited) response
           config: emailConfig
         })
       });
@@ -254,6 +233,12 @@ export default function App() {
     } finally {
       setIsAnalyzing(false);
     }
+  };
+
+  const handleUpdateResponseDraft = (appealId: string, newResponse: string) => {
+    setAppeals(prev => prev.map(a => 
+      a.id === appealId ? { ...a, suggestedResponse: newResponse } : a
+    ));
   };
 
   const handleSaveSettings = () => {
@@ -443,8 +428,8 @@ export default function App() {
                           </button>
                         </div>
                         <p className="text-[10px] text-gray-500 mt-1">
-                          Для Gmail используйте 16-значный <strong>"Пароль приложения"</strong>. 
-                          Обычный пароль от почты не подойдет из-за политики безопасности Google.
+                          Для Gmail, Mail.ru и Yandex обязательно используйте 16-значный <strong>"Пароль приложения"</strong>. 
+                          Обычный пароль от почты не подойдет из-за политики безопасности провайдеров.
                         </p>
                       </div>
                       <div className="flex items-center gap-3">
@@ -752,18 +737,29 @@ export default function App() {
 
                             {selectedAppeal.suggestedResponse && (
                               <div className="space-y-4 pt-4 border-t border-gray-100">
-                                <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-                                  <Send className="w-4 h-4 text-emerald-600" />
-                                  Предварительный ответ
-                                </h3>
-                                <div className="p-4 bg-blue-50/50 rounded-xl text-sm leading-relaxed text-blue-900 whitespace-pre-wrap border border-blue-100">
-                                  {selectedAppeal.suggestedResponse}
+                                <div className="flex items-center justify-between">
+                                  <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                                    <Send className="w-4 h-4 text-emerald-600" />
+                                    Текст ответа (можно редактировать)
+                                  </h3>
+                                  <span className="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded">AI Draft</span>
                                 </div>
+                                
+                                <textarea 
+                                  value={selectedAppeal.suggestedResponse}
+                                  onChange={(e) => handleUpdateResponseDraft(selectedAppeal.id, e.target.value)}
+                                  className="w-full min-h-[300px] p-5 bg-white rounded-xl text-sm leading-relaxed text-gray-800 border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-y transition-all shadow-sm"
+                                  placeholder="Введите текст ответа..."
+                                />
+
                                 <button 
                                   onClick={() => handleSendResponse(selectedAppeal.id)}
-                                  className="w-full py-3 bg-[#111827] text-white rounded-xl text-sm font-bold hover:bg-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-gray-200"
+                                  disabled={isAnalyzing}
+                                  className="w-full py-4 bg-[#111827] text-white rounded-xl text-sm font-bold hover:bg-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-gray-200 disabled:opacity-50"
                                 >
-                                  {selectedAppeal.status === AppealStatus.REPLIED ? (
+                                  {isAnalyzing ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                  ) : selectedAppeal.status === AppealStatus.REPLIED ? (
                                     <>
                                       <CheckCircle className="w-4 h-4" />
                                       Отправлено

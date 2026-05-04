@@ -14,25 +14,26 @@ export async function sendReplyEmail(to: string, subject: string, text: string, 
   else if (host.includes('outlook.office365.com')) host = 'smtp.office365.com';
   else if (host.startsWith('imap.')) host = host.replace('imap.', 'smtp.');
   
-  const user = config.user?.trim();
-  const pass = config.pass?.trim();
+  const user = (config.user || '').trim();
+  const pass = (config.pass || '').trim();
 
   if (!user || !pass) {
-    throw new Error('Учетные данные для почты не найдены в конфигурации (User/Pass).');
+    console.error('SMTP: Missing credentials - user length:', user.length, 'pass length:', pass.length);
+    throw new Error('Учетные данные для SMTP не найдены (User/Pass). Пожалуйста, введите их в Настройках.');
   }
 
   // Очистка адреса получателя (извлекаем чистый email из "Name <email>")
   const cleanTo = to.includes('<') ? to.match(/<([^>]+)>/)?.[1] || to : to;
 
-  console.log(`Attempting to send mail to ${cleanTo} via ${host}:465`);
+  console.log(`SMTP: Attempting send to ${cleanTo} via ${host}:465 with user ${user}`);
 
   const transporter = nodemailer.createTransport({
     host,
     port: 465,
     secure: true,
     auth: {
-      user,
-      pass,
+      user: user,
+      pass: pass,
     },
     connectionTimeout: 15000,
   });
@@ -48,13 +49,14 @@ export async function sendReplyEmail(to: string, subject: string, text: string, 
     console.error('SMTP 465 failed, trying 587...', error.message);
     
     // Пробуем альтернативный порт 587 (часто нужен для некоторых провайдеров)
+    console.log(`SMTP: Retrying send to ${cleanTo} via ${host}:587`);
     const transporterTLS = nodemailer.createTransport({
       host,
       port: 587,
       secure: false,
       auth: {
-        user,
-        pass,
+        user: user,
+        pass: pass,
       },
       connectionTimeout: 15000,
     });
@@ -159,11 +161,17 @@ export async function fetchLatestEmails(customConfig?: any): Promise<Appeal[]> {
     console.error('IMAP FATAL ERROR:', err);
     if (err instanceof Error) {
         const msg = err.message.toLowerCase();
-        if (msg.includes('auth') || msg.includes('a1 no')) {
-            throw new Error('ОШИБКА АВТОРИЗАЦИИ: Google отклонил пароль. Убедитесь, что вы используете 16-значный "Пароль Приложения", а не обычный пароль от почты.');
+        const fullErr = JSON.stringify(err).toLowerCase();
+        
+        // Check for common authentication failure strings
+        if (msg.includes('auth') || msg.includes('no [') || msg.includes('credential') || msg.includes('command failed') || fullErr.includes('authenticationfailed')) {
+            throw new Error('ОШИБКА ВХОДА: Почтовый сервер отклонил ваш логин или пароль.\n\n' + 
+                            '1. Обязательно используйте "Пароль Приложения" (16 знаков), а не обычный пароль.\n' +
+                            '2. Gmail: В настройках почты (через браузер) Включите IMAP.\n' +
+                            '3. Проверьте правильность написания Почты (логина).');
         }
         if (msg.includes('timeout') || msg.includes('econnrefused')) {
-            throw new Error('ОШИБКА СЕТИ: Сервер почты не отвечает. Подождите 10 секунд и попробуйте снова.');
+            throw new Error('ОШИБКА СЕТИ: Сервер почты не отвечает. Проверьте адрес (IMAP Host) или подождите немного.');
         }
         throw new Error(`ОШИБКА ПОДКЛЮЧЕНИЯ: ${err.message}`);
     }
